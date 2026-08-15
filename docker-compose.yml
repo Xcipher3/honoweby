@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: webhookapi
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U postgres]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    image: postgres:16-alpine
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: postgres
+    volumes:
+      - ./schema.sql:/schema.sql:ro
+    command: [psql, -h, db, -U, postgres, -d, webhookapi, -v, ON_ERROR_STOP=1, -f, /schema.sql]
+
+  api:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      LOG_LEVEL: info
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/webhookapi?sslmode=disable
+      WEBHOOK_SECRET: change_me_in_production
+      WEBHOOK_TOLERANCE_SECONDS: '300'
+
+volumes:
+  pgdata:

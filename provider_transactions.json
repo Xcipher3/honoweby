@@ -1,0 +1,6 @@
+[
+  { "transaction_id": "txn_abc123xyz", "amount_cents": 14999, "currency": "KES" },
+  { "transaction_id": "txn_def456uvw", "amount_cents": 5000, "currency": "KES" },
+  { "transaction_id": "txn_missing0001", "amount_cents": 2500, "currency": "KES" },
+  { "transaction_id": "txn_missing0002", "amount_cents": 12000, "currency": "KES" }
+]
