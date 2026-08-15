@@ -85,6 +85,58 @@ See `package.json` for the exact pinned versions used here.
 
 ---
 
+## Browser testing with the OpenAPI UI
+
+### 1. Run the servers
+
+Start the API together with its database. Either option below brings up the same service at `http://localhost:3000`:
+
+```bash
+# Full stack in Docker (Postgres + migration + API)
+docker compose up -d --build
+
+# Or API on the host against any Postgres (local or Neon)
+npm run dev
+```
+
+Confirm the API is healthy: `GET /` returns `200 OK` and the healthcheck passes.
+
+### 2. Open the API reference
+
+Navigate to <http://localhost:3000/reference> - an interactive Scalar docs UI generated at runtime from the Zod route schemas (the raw OpenAPI 3.1 spec is served at `/doc`). You will see the API description, the request/response schemas, and the documented status codes for each route.
+
+### 3. Send an authenticated request
+
+1. Expand `POST /webhooks/payment` and click **Test Request**. The body editor is pre-filled from the schema.
+2. Add the `x-webhook-signature` request header. This is a signature-first API: every request must be signed with the webhook secret, otherwise it is rejected with `401`.
+3. Click **Send** and inspect the response (`200 Acknowledged` for a valid event).
+
+**Generating a signature** - `HMAC-SHA256` over `t.<rawBody>` using `WEBHOOK_SECRET` (`dev_secret_change_me` in dev). The body you sign must be byte-identical to the body you send:
+
+```powershell
+$body = '{"event_id":"evt_demo_1","type":"payment.succeeded","timestamp":"2026-08-16T10:00:00Z","data":{"transaction_id":"txn_demo_1","amount_cents":14999,"currency":"KES","customer_email":"user@example.com","status":"completed"}}'
+$t = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+$hmac = [System.Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes('dev_secret_change_me'))
+$hex = [Convert]::ToHexString($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes("$t.$body"))).ToLower()
+Write-Host "t=$t,v1=$hex"
+```
+
+Paste the output as the header value and send.
+
+### 4. Validate the expected behavior
+
+| Action | Result |
+| --- | --- |
+| Valid signature + fresh timestamp | `200` - event appended to the ledger |
+| Re-send the same `event_id` | `200` - idempotent ack, no duplicate row |
+| Wrong secret / tampered body | `401 Unauthorized` |
+| Timestamp older than `WEBHOOK_TOLERANCE_SECONDS` | `401` - stale timestamp |
+| Negative `amount_cents` or non-`KES` currency | `400 Bad Request` |
+
+The same flow is covered end-to-end by the automated test suite (`npm test`).
+
+---
+
 ## Task 1 - Webhook ingestion (`POST /webhooks/payment`)
 
 - **Signature-first security**: HMAC-SHA256 over the raw body (`t.<raw_body>`, Stripe-style `x-webhook-signature` header) verified before any parsing; `timingSafeEqual` constant-time compare; stale-timestamp replay protection (`WEBHOOK_TOLERANCE_SECONDS`).
