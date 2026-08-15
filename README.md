@@ -381,19 +381,3 @@ Analysis: the query never performs a full-table scan. The one `Seq Scan` above i
             ├── webhooks.index.ts  # router assembly
             └── webhooks.test.ts   # vitest suite
 ```
-
-## Testing
-
-`npm test` runs 24 tests (3 files) against the shared Postgres test database, non-destructively (per-run `RUN_ID` prefixes + scoped cleanup):
-
-- Webhooks: signature matrix, replay protection, payload validation, exactly-once, concurrent duplicate deliveries.
-- Reconciliation engine: parsing/validation, all four classification buckets, deduplication.
-- Reconciliation CLI (end-to-end): spawns the real CLI, asserts the summary output and compensating inserts, proves re-run idempotency, and validates the missing-file error path.
-
-## Submission checklist
-
-- [x] Complete Task 1 API code with HMAC signature verification and idempotency.
-- [x] Complete Task 2 CLI tool supporting optional path arguments and compensating writes.
-- [x] Included `schema.sql` with indexes and unique constraints.
-- [x] Included sample `provider_transactions.json` test fixture.
-- [x] Completed `README.md` containing setup commands, Task 3 EXPLAIN analysis, and Task 4 critique.
